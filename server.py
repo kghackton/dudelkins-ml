@@ -23,39 +23,43 @@ class NeuralNetwork():
         self.label_map = {'resolved': 0, 'consulted': 1, 'reject': 2, 'cancel': 3}
 
     def predict(self, message):
-        with torch.no_grad():
-            id_defect = float(self.id_defect_dict[message['id_defect']])
-            id_emergency = 0.0 if message['id_emergency'] == 'normal' else 1.0
-            done_works = [float(self.id_done_works_dict[x]) for x in message['id_done_works']]
-            if message['id_security_works'] == []:
-                security_works = [0]
-            else:
-                security_works = [float(self.id_done_security_works[x]) for x in message['id_security_works']]
-            label = self.label_map[message['result']]
-            # print(id_defect, id_emergency, done_works, security_works, label)
+        try:
+            with torch.no_grad():
+                id_defect = float(self.id_defect_dict[str(message['id_defect'])])
+                id_emergency = 0.0 if message['id_emergency'] == 'normal' else 1.0
+                done_works = [float(self.id_done_works_dict[str(x)]) for x in message['id_done_works']]
+                if message['id_security_works'] == []:
+                    security_works = [0]
+                else:
+                    security_works = [float(self.id_done_security_works[str(x)]) for x in message['id_security_works']]
+                label = self.label_map[message['result']]
+                # print(id_defect, id_emergency, done_works, security_works, label)
 
-            batch_input = []
-            batch_label = []
-            for dw in done_works:
-                for ddw in security_works:
-                    sample = torch.tensor((id_defect / 335.0, id_emergency, dw / 1256.0, ddw / 38.0), dtype=torch.float)
-                    batch_input.append(sample)
-                    labels = torch.tensor(label, dtype=torch.long)
-                    batch_label.append(labels)
+                batch_input = []
+                batch_label = []
+                for dw in done_works:
+                    for ddw in security_works:
+                        sample = torch.tensor((id_defect / 335.0, id_emergency, dw / 1256.0, ddw / 38.0), dtype=torch.float)
+                        batch_input.append(sample)
+                        labels = torch.tensor(label, dtype=torch.long)
+                        batch_label.append(labels)
 
-                    # print(id_defect, id_emergency, dw, ddw, label)
-            batch_input = torch.stack(batch_input, dim=0)
-            batch_label = torch.stack(batch_label, dim=0)
+                        # print(id_defect, id_emergency, dw, ddw, label)
+                batch_input = torch.stack(batch_input, dim=0)
+                batch_label = torch.stack(batch_label, dim=0)
 
-            output = self.model(batch_input)
+                output = self.model(batch_input)
 
-            acc = (output.argmax(1) == batch_label).sum().item()
-            _label = int(batch_label[0])
-            confidence = float(output[:, _label].mean())
-            # print(values)
-            if acc > 0:
-                return (False, confidence)
-            return (True, 1.0 - confidence)
+                acc = (output.argmax(1) == batch_label).sum().item()
+                _label = int(batch_label[0])
+                confidence = float(output[:, _label].mean())
+                # print(values)
+                if acc > 0:
+                    return (False, confidence)
+                return (True, 1.0 - confidence)
+        except Exception as e:
+            logging.warn(f'Something wrong: {e}')
+            return (False, 0.5)
     def dummy(self):
         return None
 
